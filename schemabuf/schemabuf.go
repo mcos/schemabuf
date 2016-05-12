@@ -169,21 +169,18 @@ func (s *Schema) String() string {
 	buf.WriteString("\n")
 	buf.WriteString(fmt.Sprintf("package '%s';\n", s.Package))
 	buf.WriteString("\n")
-	buf.WriteString("// Imports")
-	buf.WriteString("\n\n")
+	buf.WriteString("// Imports\n")
 	for _, i := range s.Imports {
 		buf.WriteString(fmt.Sprintf("import \"%s\";\n", i))
 	}
 	buf.WriteString("\n")
-	buf.WriteString("// Messages")
-	buf.WriteString("\n\n")
+	buf.WriteString("// Messages\n")
 
 	for _, m := range s.Messages {
 		buf.WriteString(fmt.Sprintf("%s\n", m))
 	}
 	buf.WriteString("\n")
-	buf.WriteString("// Enums")
-	buf.WriteString("\n\n")
+	buf.WriteString("// Enums\n")
 
 	for _, e := range s.Enums {
 		buf.WriteString(fmt.Sprintf("%s\n", e))
