@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/chuckpreslar/inflect"
-	_ "github.com/go-sql-driver/mysql"
 	"github.com/serenize/snaker"
 )
 
@@ -35,10 +35,13 @@ func GenerateSchema(db *sql.DB) (*Schema, error) {
 		return nil, err
 	}
 
-	typesFromColumns(s, cols)
+	err = typesFromColumns(s, cols)
 	if nil != err {
 		return nil, err
 	}
+
+	sort.Sort(s.Messages)
+	sort.Sort(s.Enums)
 
 	return s, nil
 }
@@ -112,13 +115,37 @@ type Schema struct {
 	Syntax   string
 	Package  string
 	Imports  []string
-	Messages []*Message
-	Enums    []*Enum
+	Messages MessageCollection
+	Enums    EnumCollection
 }
 
 type MessageCollection []*Message
 
+func (mc MessageCollection) Len() int {
+	return len(mc)
+}
+
+func (mc MessageCollection) Less(i, j int) bool {
+	return mc[i].Name < mc[j].Name
+}
+
+func (mc MessageCollection) Swap(i, j int) {
+	mc[i], mc[j] = mc[j], mc[i]
+}
+
 type EnumCollection []*Enum
+
+func (ec EnumCollection) Len() int {
+	return len(ec)
+}
+
+func (ec EnumCollection) Less(i, j int) bool {
+	return ec[i].Name < ec[j].Name
+}
+
+func (ec EnumCollection) Swap(i, j int) {
+	ec[i], ec[j] = ec[j], ec[i]
+}
 
 func (s *Schema) AddImport(imports string) {
 	shouldAdd := true
@@ -150,12 +177,14 @@ func (s *Schema) String() string {
 	buf.WriteString("\n")
 	buf.WriteString("// Messages")
 	buf.WriteString("\n\n")
+
 	for _, m := range s.Messages {
 		buf.WriteString(fmt.Sprintf("%s\n", m))
 	}
 	buf.WriteString("\n")
 	buf.WriteString("// Enums")
 	buf.WriteString("\n\n")
+
 	for _, e := range s.Enums {
 		buf.WriteString(fmt.Sprintf("%s\n", e))
 	}
