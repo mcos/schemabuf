@@ -14,11 +14,20 @@ import (
 )
 
 const (
-	// Proto3 is a string describing the proto3 syntax type.
-	Proto3 = "proto3"
+	// proto3 is a describing the proto3 syntax type.
+	proto3 = "proto3"
+
+	// indent represents the indentation amount for fields. the style guide suggests
+	// two spaces
+	indent = "  "
 )
 
 // GenerateSchema generates a protobuf schema from a database connection.
+// The returned schema implements the `fmt.Stringer` interface, in order to generate a string
+// representation of a protobuf schema.
+// Do not rely on the structure of the Generated schema to provide any context about
+// the protobuf types. The schema reflects the layout of a protobuf file and should be used
+// to pipe the output of the `Schema.String()` to a file.
 func GenerateSchema(db *sql.DB) (*Schema, error) {
 	s := &Schema{}
 
@@ -27,7 +36,7 @@ func GenerateSchema(db *sql.DB) (*Schema, error) {
 		return nil, err
 	}
 
-	s.Syntax = Proto3
+	s.Syntax = proto3
 	s.Package = dbs
 
 	cols, err := dbColumns(db, dbs)
@@ -40,6 +49,7 @@ func GenerateSchema(db *sql.DB) (*Schema, error) {
 		return nil, err
 	}
 
+	sort.Sort(s.Imports)
 	sort.Sort(s.Messages)
 	sort.Sort(s.Enums)
 
@@ -114,11 +124,12 @@ func dbColumns(db *sql.DB, schema string) ([]Column, error) {
 type Schema struct {
 	Syntax   string
 	Package  string
-	Imports  []string
+	Imports  sort.StringSlice
 	Messages MessageCollection
 	Enums    EnumCollection
 }
 
+// MessageCollection represents a sortable collection of messages.
 type MessageCollection []*Message
 
 func (mc MessageCollection) Len() int {
@@ -133,6 +144,7 @@ func (mc MessageCollection) Swap(i, j int) {
 	mc[i], mc[j] = mc[j], mc[i]
 }
 
+// EnumCollection represents a sortable collection of enums.
 type EnumCollection []*Enum
 
 func (ec EnumCollection) Len() int {
@@ -147,7 +159,8 @@ func (ec EnumCollection) Swap(i, j int) {
 	ec[i], ec[j] = ec[j], ec[i]
 }
 
-func (s *Schema) AddImport(imports string) {
+// AppendImport adds an import to a schema if the specific import does not already exist in the schema.
+func (s *Schema) AppendImport(imports string) {
 	shouldAdd := true
 	for _, si := range s.Imports {
 		if si == imports {
@@ -162,6 +175,7 @@ func (s *Schema) AddImport(imports string) {
 
 }
 
+// String returns a string representation of a Schema.
 func (s *Schema) String() string {
 	buf := new(bytes.Buffer)
 
@@ -169,48 +183,63 @@ func (s *Schema) String() string {
 	buf.WriteString("\n")
 	buf.WriteString(fmt.Sprintf("package '%s';\n", s.Package))
 	buf.WriteString("\n")
+	buf.WriteString("// ------------------------------------ \n")
 	buf.WriteString("// Imports\n")
+	buf.WriteString("// ------------------------------------ \n\n")
+
 	for _, i := range s.Imports {
 		buf.WriteString(fmt.Sprintf("import \"%s\";\n", i))
 	}
+
 	buf.WriteString("\n")
+	buf.WriteString("// ------------------------------------ \n")
 	buf.WriteString("// Messages\n")
+	buf.WriteString("// ------------------------------------ \n\n")
 
 	for _, m := range s.Messages {
 		buf.WriteString(fmt.Sprintf("%s\n", m))
 	}
+
 	buf.WriteString("\n")
+	buf.WriteString("// ------------------------------------ \n")
 	buf.WriteString("// Enums\n")
+	buf.WriteString("// ------------------------------------ \n\n")
 
 	for _, e := range s.Enums {
 		buf.WriteString(fmt.Sprintf("%s\n", e))
 	}
+
 	buf.WriteString("\n")
 
 	return buf.String()
 }
 
+// Enum represents a protocol buffer enumerated type.
 type Enum struct {
 	Name   string
 	Fields []EnumField
 }
 
+// String returns a string representation of an Enum.
 func (e *Enum) String() string {
 	buf := new(bytes.Buffer)
 
 	buf.WriteString(fmt.Sprintf("enum %s {\n", e.Name))
+
 	for _, f := range e.Fields {
-		buf.WriteString(fmt.Sprintf("%s%s;\n", "  ", f)) // two space indentation
+		buf.WriteString(fmt.Sprintf("%s%s;\n", indent, f))
 	}
+
 	buf.WriteString("}\n")
 
 	return buf.String()
 }
 
-func (e *Enum) AddField(ef EnumField) error {
+// AppendField appends an EnumField to an Enum.
+func (e *Enum) AppendField(ef EnumField) error {
 	for _, f := range e.Fields {
 		if f.Tag() == ef.Tag() {
-			return fmt.Errorf("tag `%d` is already in use by field `%s`", ef.Tag(), f.Name)
+			return fmt.Errorf("tag `%d` is already in use by field `%s`", ef.Tag(), f.Name())
 		}
 	}
 
@@ -219,11 +248,13 @@ func (e *Enum) AddField(ef EnumField) error {
 	return nil
 }
 
+// EnumField represents a field in an enumerated type.
 type EnumField struct {
 	name string
 	tag  int
 }
 
+// NewEnumField constructs an EnumField type.
 func NewEnumField(name string, tag int) EnumField {
 	name = strings.ToUpper(name)
 
@@ -233,24 +264,28 @@ func NewEnumField(name string, tag int) EnumField {
 	return EnumField{name, tag}
 }
 
+// String returns a string representation of an Enum.
 func (ef EnumField) String() string {
 	return fmt.Sprintf("%s = %d", ef.name, ef.tag)
 }
 
+// Name returns the name of the enum field.
 func (ef EnumField) Name() string {
 	return ef.name
 }
 
+// Tag returns the identifier tag of the enum field.
 func (ef EnumField) Tag() int {
 	return ef.tag
 }
 
+// newEnumFromStrings creates an enum from a name and a slice of strings that represent the names of each field.
 func newEnumFromStrings(name string, ss []string) (*Enum, error) {
 	enum := &Enum{}
 	enum.Name = name
 
 	for i, s := range ss {
-		err := enum.AddField(NewEnumField(s, i+1))
+		err := enum.AppendField(NewEnumField(s, i+1))
 		if nil != err {
 			return nil, err
 		}
@@ -259,37 +294,31 @@ func newEnumFromStrings(name string, ss []string) (*Enum, error) {
 	return enum, nil
 }
 
+// Service represents a protocol buffer service.
+// TODO: Implement this in a schema.
 type Service struct{}
 
-type Column struct {
-	TableName              string
-	ColumnName             string
-	IsNullable             string
-	DataType               string
-	CharacterMaximumLength sql.NullInt64
-	NumericPrecision       sql.NullInt64
-	NumericScale           sql.NullInt64
-	ColumnType             string
-}
-
+// Message represents a protocol buffer message.
 type Message struct {
 	Name   string
 	Fields []MessageField
 }
 
+// String returns a string representation of a Message.
 func (m Message) String() string {
 	var buf bytes.Buffer
 
 	buf.WriteString(fmt.Sprintf("message %s {\n", m.Name))
 	for _, f := range m.Fields {
-		buf.WriteString(fmt.Sprintf("%s%s;\n", "  ", f)) // two space indentation
+		buf.WriteString(fmt.Sprintf("%s%s;\n", indent, f))
 	}
 	buf.WriteString("}\n")
 
 	return buf.String()
 }
 
-func (m *Message) AddField(mf MessageField) error {
+// AppendField appends a message field to a message. If the tag of the message field is in use, an error will be returned.
+func (m *Message) AppendField(mf MessageField) error {
 	for _, f := range m.Fields {
 		if f.Tag() == mf.Tag() {
 			return fmt.Errorf("tag `%d` is already in use by field `%s`", mf.Tag(), f.Name)
@@ -301,12 +330,14 @@ func (m *Message) AddField(mf MessageField) error {
 	return nil
 }
 
+// MessageField represents the field of a message.
 type MessageField struct {
 	Typ  string
 	Name string
 	tag  int
 }
 
+// NewMessageField creates a new message field.
 func NewMessageField(typ, name string, tag int) MessageField {
 	return MessageField{typ, name, tag}
 }
@@ -316,10 +347,25 @@ func (f MessageField) Tag() int {
 	return f.tag
 }
 
+// String returns a string representation of a message field.
 func (f MessageField) String() string {
 	return fmt.Sprintf("%s %s = %d", f.Typ, f.Name, f.tag)
 }
 
+// Column represents a database column.
+type Column struct {
+	TableName              string
+	ColumnName             string
+	IsNullable             string
+	DataType               string
+	CharacterMaximumLength sql.NullInt64
+	NumericPrecision       sql.NullInt64
+	NumericScale           sql.NullInt64
+	ColumnType             string
+}
+
+// parseColumn parses a column and inserts the relevant fields in the Message. If an enumerated type is encountered, an Enum will
+// be added to the Schema. Returns an error if an incompatible protobuf data type cannot be found for the database column type.
 func parseColumn(s *Schema, msg *Message, col Column) error {
 	typ := strings.ToLower(col.DataType)
 	var fieldType string
@@ -347,7 +393,7 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 	case "blob", "mediumblob", "longblob", "varbinary", "binary":
 		fieldType = "bytes"
 	case "date", "time", "datetime", "timestamp":
-		s.AddImport("google/protobuf/timestamp.proto")
+		s.AppendImport("google/protobuf/timestamp.proto")
 
 		fieldType = "google.protobuf.Timestamp"
 	case "tinyint", "bool":
@@ -364,7 +410,7 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 
 	field := NewMessageField(fieldType, col.ColumnName, len(msg.Fields)+1)
 
-	err := msg.AddField(field)
+	err := msg.AppendField(field)
 	if nil != err {
 		return err
 	}

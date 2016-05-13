@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	db := flag.String("db", "mysql", "the database type")
+	dbType := flag.String("db", "mysql", "the database type")
 	host := flag.String("host", "localhost", "the database host")
 	port := flag.Int("port", 3306, "the database port")
 	user := flag.String("user", "root", "the database user")
@@ -22,14 +22,20 @@ func main() {
 	flag.Parse()
 
 	connStr := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s", *user, *password, *host, *port, *schema)
-	conn, err := sql.Open(*db, connStr)
+	db, err := sql.Open(*dbType, connStr)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	defer conn.Close()
+	defer db.Close()
 
-	s, err := schemabuf.GenerateSchema(conn)
+	s, err := schemabuf.GenerateSchema(db)
 
-	fmt.Println(s)
+	if nil != err {
+		log.Fatal(err)
+	}
+
+	if nil != s {
+		fmt.Println(s)
+	}
 }
