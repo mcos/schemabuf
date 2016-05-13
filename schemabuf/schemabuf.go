@@ -286,7 +286,7 @@ func newEnumFromStrings(name string, ss []string) (*Enum, error) {
 	enum.Name = name
 
 	for i, s := range ss {
-		err := enum.AppendField(NewEnumField(s, i+1))
+		err := enum.AppendField(NewEnumField(s, i))
 		if nil != err {
 			return nil, err
 		}
