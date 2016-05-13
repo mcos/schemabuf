@@ -182,7 +182,7 @@ func (s *Schema) String() string {
 
 	buf.WriteString(fmt.Sprintf("syntax = '%s';\n", s.Syntax))
 	buf.WriteString("\n")
-	buf.WriteString(fmt.Sprintf("package '%s';\n", s.Package))
+	buf.WriteString(fmt.Sprintf("package %s;\n", s.Package))
 	buf.WriteString("\n")
 	buf.WriteString("// ------------------------------------ \n")
 	buf.WriteString("// Imports\n")
