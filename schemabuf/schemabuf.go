@@ -97,6 +97,7 @@ func dbColumns(db *sql.DB, schema string) ([]Column, error) {
 		"FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? ORDER BY TABLE_NAME, ORDINAL_POSITION"
 
 	rows, err := db.Query(q, schema)
+	defer rows.Close()
 	if nil != err {
 		return nil, err
 	}
