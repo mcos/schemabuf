@@ -17,6 +17,8 @@ Usage of schemabuf:
         the database type (default "mysql")
   -host string
         the database host (default "localhost")
+  -package string
+        the protocol buffer package. defaults to the database schema. (default "db_name")
   -password string
         the database password (default "root")
   -port int
@@ -28,7 +30,7 @@ Usage of schemabuf:
 ```
 
 ```
-$ schemabuf -host my.database.com -port 3307 -user foo -schema bar > foobar.proto
+$ schemabuf -host my.database.com -port 3307 -user foo -schema bar -package my_package > foobar.proto
 ```
 
 #### Use as an imported library
@@ -38,6 +40,7 @@ import "github.com/mcos/schemabuf"
 
 func main() {
     connStr := config.get("dbConnStr")
+    pkg := "my_package"
 
     db, err := sql.Open(*dbType, connStr)
     if err != nil {
@@ -46,7 +49,7 @@ func main() {
 
     defer db.Close()
 
-	s, err := schemabuf.GenerateSchema(db)
+    s, err := schemabuf.GenerateSchema(db, pkg)
 
 	if nil != err {
 		log.Fatal(err)

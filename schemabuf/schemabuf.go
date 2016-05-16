@@ -22,13 +22,13 @@ const (
 	indent = "  "
 )
 
-// GenerateSchema generates a protobuf schema from a database connection.
+// GenerateSchema generates a protobuf schema from a database connection and a package name.
 // The returned schema implements the `fmt.Stringer` interface, in order to generate a string
 // representation of a protobuf schema.
 // Do not rely on the structure of the Generated schema to provide any context about
 // the protobuf types. The schema reflects the layout of a protobuf file and should be used
 // to pipe the output of the `Schema.String()` to a file.
-func GenerateSchema(db *sql.DB) (*Schema, error) {
+func GenerateSchema(db *sql.DB, pkg string) (*Schema, error) {
 	s := &Schema{}
 
 	dbs, err := dbSchema(db)
@@ -37,7 +37,9 @@ func GenerateSchema(db *sql.DB) (*Schema, error) {
 	}
 
 	s.Syntax = proto3
-	s.Package = dbs
+	if "" != pkg {
+		s.Package = pkg
+	}
 
 	cols, err := dbColumns(db, dbs)
 	if nil != err {

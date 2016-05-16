@@ -18,6 +18,7 @@ func main() {
 	user := flag.String("user", "root", "the database user")
 	password := flag.String("password", "root", "the database password")
 	schema := flag.String("schema", "db_name", "the database schema")
+	packageName := flag.String("package", *schema, "the protocol buffer package. defaults to the database schema.")
 
 	flag.Parse()
 
@@ -29,7 +30,7 @@ func main() {
 
 	defer db.Close()
 
-	s, err := schemabuf.GenerateSchema(db)
+	s, err := schemabuf.GenerateSchema(db, *packageName)
 
 	if nil != err {
 		log.Fatal(err)
