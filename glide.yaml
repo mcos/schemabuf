@@ -1,0 +1,5 @@
+package: github.com/mcos/schemabuf
+import:
+- package: github.com/chuckpreslar/inflect
+- package: github.com/go-sql-driver/mysql
+- package: github.com/serenize/snaker
