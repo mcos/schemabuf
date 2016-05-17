@@ -23,12 +23,13 @@ const (
 )
 
 // GenerateSchema generates a protobuf schema from a database connection and a package name.
+// A list of tables to ignore may also be supplied.
 // The returned schema implements the `fmt.Stringer` interface, in order to generate a string
 // representation of a protobuf schema.
 // Do not rely on the structure of the Generated schema to provide any context about
 // the protobuf types. The schema reflects the layout of a protobuf file and should be used
 // to pipe the output of the `Schema.String()` to a file.
-func GenerateSchema(db *sql.DB, pkg string) (*Schema, error) {
+func GenerateSchema(db *sql.DB, pkg string, ignoreTables []string) (*Schema, error) {
 	s := &Schema{}
 
 	dbs, err := dbSchema(db)
@@ -46,7 +47,7 @@ func GenerateSchema(db *sql.DB, pkg string) (*Schema, error) {
 		return nil, err
 	}
 
-	err = typesFromColumns(s, cols)
+	err = typesFromColumns(s, cols, ignoreTables)
 	if nil != err {
 		return nil, err
 	}
@@ -59,10 +60,18 @@ func GenerateSchema(db *sql.DB, pkg string) (*Schema, error) {
 }
 
 // typesFromColumns creates the appropriate schema properties from a collection of column types.
-func typesFromColumns(s *Schema, cols []Column) error {
+func typesFromColumns(s *Schema, cols []Column, ignoreTables []string) error {
 	messageMap := map[string]*Message{}
+	ignoreMap := map[string]bool{}
+	for _, ig := range ignoreTables {
+		ignoreMap[ig] = true
+	}
 
 	for _, c := range cols {
+		if _, ok := ignoreMap[c.TableName]; ok {
+			continue
+		}
+
 		messageName := snaker.SnakeToCamel(c.TableName)
 		messageName = inflect.Singularize(messageName)
 

@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"log"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 
@@ -19,6 +20,7 @@ func main() {
 	password := flag.String("password", "root", "the database password")
 	schema := flag.String("schema", "db_name", "the database schema")
 	packageName := flag.String("package", *schema, "the protocol buffer package. defaults to the database schema.")
+	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
 
 	flag.Parse()
 
@@ -30,7 +32,9 @@ func main() {
 
 	defer db.Close()
 
-	s, err := schemabuf.GenerateSchema(db, *packageName)
+	ignoreTables := strings.Split(*ignoreTableStr, ",")
+
+	s, err := schemabuf.GenerateSchema(db, *packageName, ignoreTables)
 
 	if nil != err {
 		log.Fatal(err)

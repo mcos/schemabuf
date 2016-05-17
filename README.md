@@ -17,6 +17,8 @@ Usage of schemabuf:
         the database type (default "mysql")
   -host string
         the database host (default "localhost")
+  -ignore_tables string
+        a comma spaced list of tables to ignore
   -package string
         the protocol buffer package. defaults to the database schema. (default "db_name")
   -password string
@@ -30,7 +32,7 @@ Usage of schemabuf:
 ```
 
 ```
-$ schemabuf -host my.database.com -port 3307 -user foo -schema bar -package my_package > foobar.proto
+$ schemabuf -host my.database.com -port 3307 -user foo -schema bar -package my_package -ignore_tables=billing,passwords > foobar.proto
 ```
 
 #### Use as an imported library
@@ -49,7 +51,7 @@ func main() {
 
     defer db.Close()
 
-    s, err := schemabuf.GenerateSchema(db, pkg)
+    s, err := schemabuf.GenerateSchema(db, pkg, nil)
 
 	if nil != err {
 		log.Fatal(err)
