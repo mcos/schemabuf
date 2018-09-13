@@ -7,7 +7,10 @@ Generates a protobuf schema from your mysql database schema.
 ### Uses
 #### Use from the command line:
 
-`go install github.com/mcos/schemabuf`
+```
+make install
+```
+
 
 ```
 $ schemabuf -h
@@ -62,3 +65,6 @@ func main() {
 	}
 }
 ```
+
+
+
