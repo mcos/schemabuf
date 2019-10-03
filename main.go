@@ -21,6 +21,7 @@ func main() {
 	schema := flag.String("schema", "db_name", "the database schema")
 	packageName := flag.String("package", *schema, "the protocol buffer package. defaults to the database schema.")
 	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
+	singularizeTblName := flag.Bool("singularize_table_name", true, "singularize table name (message name)")
 
 	flag.Parse()
 
@@ -33,8 +34,11 @@ func main() {
 	defer db.Close()
 
 	ignoreTables := strings.Split(*ignoreTableStr, ",")
-
-	s, err := schemabuf.GenerateSchema(db, *packageName, ignoreTables)
+	genOptions := schemabuf.GenerationOptions{
+		PkgName: *packageName,
+		SingularizeTblName: *singularizeTblName,
+	}
+	s, err := schemabuf.GenerateSchema(db, ignoreTables, genOptions)
 
 	if nil != err {
 		log.Fatal(err)

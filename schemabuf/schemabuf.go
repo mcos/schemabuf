@@ -22,6 +22,14 @@ const (
 	indent = "  "
 )
 
+// GenerationOptions represents all proto files generation options
+type GenerationOptions struct {
+	// PkgName is the package name of generated proto file
+	PkgName string
+	// SingularizeTblName is true means singularize table name (message name)
+	SingularizeTblName bool
+}
+
 // GenerateSchema generates a protobuf schema from a database connection and a package name.
 // A list of tables to ignore may also be supplied.
 // The returned schema implements the `fmt.Stringer` interface, in order to generate a string
@@ -29,7 +37,7 @@ const (
 // Do not rely on the structure of the Generated schema to provide any context about
 // the protobuf types. The schema reflects the layout of a protobuf file and should be used
 // to pipe the output of the `Schema.String()` to a file.
-func GenerateSchema(db *sql.DB, pkg string, ignoreTables []string) (*Schema, error) {
+func GenerateSchema(db *sql.DB, ignoreTables []string, genOptions GenerationOptions) (*Schema, error) {
 	s := &Schema{}
 
 	dbs, err := dbSchema(db)
@@ -38,8 +46,8 @@ func GenerateSchema(db *sql.DB, pkg string, ignoreTables []string) (*Schema, err
 	}
 
 	s.Syntax = proto3
-	if "" != pkg {
-		s.Package = pkg
+	if "" != genOptions.PkgName {
+		s.Package = genOptions.PkgName
 	}
 
 	cols, err := dbColumns(db, dbs)
@@ -47,7 +55,7 @@ func GenerateSchema(db *sql.DB, pkg string, ignoreTables []string) (*Schema, err
 		return nil, err
 	}
 
-	err = typesFromColumns(s, cols, ignoreTables)
+	err = typesFromColumns(s, cols, ignoreTables, genOptions)
 	if nil != err {
 		return nil, err
 	}
@@ -60,7 +68,7 @@ func GenerateSchema(db *sql.DB, pkg string, ignoreTables []string) (*Schema, err
 }
 
 // typesFromColumns creates the appropriate schema properties from a collection of column types.
-func typesFromColumns(s *Schema, cols []Column, ignoreTables []string) error {
+func typesFromColumns(s *Schema, cols []Column, ignoreTables []string, genOptions GenerationOptions) error {
 	messageMap := map[string]*Message{}
 	ignoreMap := map[string]bool{}
 	for _, ig := range ignoreTables {
@@ -73,8 +81,9 @@ func typesFromColumns(s *Schema, cols []Column, ignoreTables []string) error {
 		}
 
 		messageName := snaker.SnakeToCamel(c.TableName)
-		messageName = inflect.Singularize(messageName)
-
+		if genOptions.SingularizeTblName {
+			messageName = inflect.Singularize(messageName)
+		}
 		msg, ok := messageMap[messageName]
 		if !ok {
 			messageMap[messageName] = &Message{Name: messageName}
