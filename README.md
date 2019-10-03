@@ -19,6 +19,8 @@ Usage of schemabuf:
         the database host (default "localhost")
   -ignore_tables string
         a comma spaced list of tables to ignore
+  -singularize_table_name bool
+        singularize table name (message name) or not (default true)
   -package string
         the protocol buffer package. defaults to the database schema. (default "db_name")
   -password string
