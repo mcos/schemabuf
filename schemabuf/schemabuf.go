@@ -402,7 +402,7 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 		s.Enums = append(s.Enums, enum)
 
 		fieldType = enumName
-	case "blob", "mediumblob", "longblob", "varbinary", "binary":
+	case "blob", "mediumblob", "longblob", "varbinary", "binary", "json":
 		fieldType = "bytes"
 	case "date", "time", "datetime", "timestamp":
 		s.AppendImport("google/protobuf/timestamp.proto")
