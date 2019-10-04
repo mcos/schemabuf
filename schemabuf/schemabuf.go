@@ -27,7 +27,9 @@ type GenerationOptions struct {
 	// PkgName is the package name of generated proto file
 	PkgName string
 	// SingularizeTblName is true means singularize table name (message name)
-	SingularizeTblName bool
+	SingularizeTblName   bool
+	FieldCommentPrefix   string
+	FieldCommentPosition string
 }
 
 // GenerateSchema generates a protobuf schema from a database connection and a package name.
@@ -38,7 +40,7 @@ type GenerationOptions struct {
 // the protobuf types. The schema reflects the layout of a protobuf file and should be used
 // to pipe the output of the `Schema.String()` to a file.
 func GenerateSchema(db *sql.DB, ignoreTables []string, genOptions GenerationOptions) (*Schema, error) {
-	s := &Schema{}
+	s := &Schema{genOpts: genOptions}
 
 	dbs, err := dbSchema(db)
 	if nil != err {
@@ -46,8 +48,8 @@ func GenerateSchema(db *sql.DB, ignoreTables []string, genOptions GenerationOpti
 	}
 
 	s.Syntax = proto3
-	if "" != genOptions.PkgName {
-		s.Package = genOptions.PkgName
+	if "" != s.genOpts.PkgName {
+		s.Package = s.genOpts.PkgName
 	}
 
 	cols, err := dbColumns(db, dbs)
@@ -55,7 +57,7 @@ func GenerateSchema(db *sql.DB, ignoreTables []string, genOptions GenerationOpti
 		return nil, err
 	}
 
-	err = typesFromColumns(s, cols, ignoreTables, genOptions)
+	err = typesFromColumns(s, cols, ignoreTables)
 	if nil != err {
 		return nil, err
 	}
@@ -68,7 +70,7 @@ func GenerateSchema(db *sql.DB, ignoreTables []string, genOptions GenerationOpti
 }
 
 // typesFromColumns creates the appropriate schema properties from a collection of column types.
-func typesFromColumns(s *Schema, cols []Column, ignoreTables []string, genOptions GenerationOptions) error {
+func typesFromColumns(s *Schema, cols []Column, ignoreTables []string) error {
 	messageMap := map[string]*Message{}
 	ignoreMap := map[string]bool{}
 	for _, ig := range ignoreTables {
@@ -81,7 +83,7 @@ func typesFromColumns(s *Schema, cols []Column, ignoreTables []string, genOption
 		}
 
 		messageName := snaker.SnakeToCamel(c.TableName)
-		if genOptions.SingularizeTblName {
+		if s.genOpts.SingularizeTblName {
 			messageName = inflect.Singularize(messageName)
 		}
 		msg, ok := messageMap[messageName]
@@ -148,6 +150,7 @@ type Schema struct {
 	Imports  sort.StringSlice
 	Messages MessageCollection
 	Enums    EnumCollection
+	genOpts  GenerationOptions
 }
 
 // MessageCollection represents a sortable collection of messages.
@@ -218,7 +221,7 @@ func (s *Schema) String() string {
 	buf.WriteString("// ------------------------------------ \n\n")
 
 	for _, m := range s.Messages {
-		buf.WriteString(fmt.Sprintf("%s\n", m))
+		buf.WriteString(fmt.Sprintf("%s\n", m.String(s.genOpts.FieldCommentPrefix, s.genOpts.FieldCommentPosition)))
 	}
 
 	buf.WriteString("\n")
@@ -326,12 +329,20 @@ type Message struct {
 }
 
 // String returns a string representation of a Message.
-func (m Message) String() string {
+func (m Message) String(fieldComment, commentPos string) string {
 	var buf bytes.Buffer
 
 	buf.WriteString(fmt.Sprintf("message %s {\n", m.Name))
 	for _, f := range m.Fields {
-		buf.WriteString(fmt.Sprintf("%s%s;\n", indent, f))
+		switch commentPos {
+		case "right": // write field comment on right of defined field
+			buf.WriteString(fmt.Sprintf("%s%s;\n // %s:\"%s\"", indent, f, fieldComment, f.Name))
+		case "top": // write field comment on top of defined field
+			buf.WriteString(fmt.Sprintf("%s// %s:\"%s\"\n", indent, fieldComment, f.Name))
+			buf.WriteString(fmt.Sprintf("%s%s;\n", indent, f))
+		default:
+			buf.WriteString(fmt.Sprintf("%s%s;\n", indent, f))
+		}
 	}
 	buf.WriteString("}\n")
 
@@ -385,6 +396,18 @@ type Column struct {
 	ColumnType             string
 }
 
+func (c Column) Nullable() bool {
+	return c.IsNullable == "YES"
+}
+
+func (c Column) IsUnsigned() bool {
+	return strings.Contains(c.ColumnType, "unsigned")
+}
+
+func (c Column) IsBoolean() bool {
+	return strings.Contains(c.ColumnType, "tinyint(1)")
+}
+
 // parseColumn parses a column and inserts the relevant fields in the Message. If an enumerated type is encountered, an Enum will
 // be added to the Schema. Returns an error if an incompatible protobuf data type cannot be found for the database column type.
 func parseColumn(s *Schema, msg *Message, col Column) error {
@@ -392,8 +415,6 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 	var fieldType string
 
 	switch typ {
-	case "char", "varchar", "text", "longtext", "mediumtext", "tinytext":
-		fieldType = "string"
 	case "enum", "set":
 		// Parse c.ColumnType to get the enum list
 		enumList := regexp.MustCompile(`[enum|set]\((.+?)\)`).FindStringSubmatch(col.ColumnType)
@@ -407,22 +428,80 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 		if nil != err {
 			return err
 		}
-
 		s.Enums = append(s.Enums, enum)
-
 		fieldType = enumName
+	case "char", "varchar", "text", "longtext", "mediumtext", "tinytext":
+		if col.Nullable() {
+			s.AppendImport("app/pkg/protoext/exttype.proto")
+			fieldType = "exttype.NullString"
+		} else {
+			fieldType = "string"
+		}
 	case "blob", "mediumblob", "longblob", "varbinary", "binary":
 		fieldType = "bytes"
+	case "json":
+		if col.Nullable() {
+			s.AppendImport("app/pkg/protoext/exttype.proto")
+			fieldType = "exttype.NullJSON"
+		} else {
+			fieldType = "bytes"
+		}
 	case "date", "time", "datetime", "timestamp":
-		s.AppendImport("google/protobuf/timestamp.proto")
-
-		fieldType = "google.protobuf.Timestamp"
-	case "tinyint", "bool":
-		fieldType = "bool"
-	case "smallint", "int", "mediumint", "bigint":
-		fieldType = "int32"
+		s.AppendImport("app/pkg/protoext/exttype.proto")
+		fieldType = "exttype.Timestamp"
+	case "bool":
+		if col.Nullable() {
+			s.AppendImport("app/pkg/protoext/exttype.proto")
+			fieldType = "exttype.NullBool"
+		} else {
+			fieldType = "bool"
+		}
+	case "tinyint":
+		if col.IsBoolean() {
+			if col.Nullable() {
+				s.AppendImport("app/pkg/protoext/exttype.proto")
+				fieldType = "exttype.NullBool"
+			} else {
+				fieldType = "bool"
+			}
+		} else {
+			if col.Nullable() {
+				s.AppendImport("app/pkg/protoext/exttype.proto")
+				fieldType = "exttype.NullInt32"
+			} else {
+				fieldType = "int32"
+			}
+		}
+	case "smallint", "int", "mediumint":
+		if col.Nullable() {
+			s.AppendImport("app/pkg/protoext/exttype.proto")
+			fieldType = "exttype.NullInt32"
+		} else {
+			if col.IsUnsigned() {
+				fieldType = "uint32"
+			} else {
+				fieldType = "int32"
+			}
+		}
+	case "bigint":
+		if col.Nullable() {
+			s.AppendImport("app/pkg/protoext/exttype.proto")
+			fieldType = "exttype.NullInt64"
+		} else {
+			if col.IsUnsigned() {
+				fieldType = "uint64"
+			} else {
+				fieldType = "int64"
+			}
+		}
+	// https://developers.google.com/protocol-buffers/docs/proto3#scalar
 	case "float", "decimal", "double":
-		fieldType = "float"
+		if col.Nullable() {
+			s.AppendImport("app/pkg/protoext/exttype.proto")
+			fieldType = "exttype.NullFloat64"
+		} else {
+			fieldType = "double" // double == float64 in go
+		}
 	}
 
 	if "" == fieldType {
