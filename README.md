@@ -29,6 +29,14 @@ Usage of schemabuf:
         the database port (default 3306)
   -schema string
         the database schema (default "db_name")
+  -field_comment string
+        comment to field of message. Format: comment_prefix,position.
+        Position could be "top" or "right".
+        The comment will be generated with format: `comment_prefix:"field"`.
+        Example: `@injected_tag db:"id"`, with "@injected_tag db:" is comment_prefix,
+        and "id" is the field name of message.
+  -go_package string
+        Set value to option `option go_package="?";` when proto file was generated.
   -user string
         the database user (default "root")
 ```
