@@ -23,6 +23,7 @@ func main() {
 	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
 	singularizeTblName := flag.Bool("singularize_table_name", true, "singularize table name (message name)")
 	fieldCommentStr := flag.String("field_comment", ",", "field comment, format: comment_prefix,position")
+	goPkgStr := flag.String("go_package", "", "value for `option go_package` option")
 
 	flag.Parse()
 
@@ -37,10 +38,11 @@ func main() {
 	ignoreTables := strings.Split(*ignoreTableStr, ",")
 	cmtInfo := strings.Split(*fieldCommentStr, ",")
 	genOptions := schemabuf.GenerationOptions{
-		PkgName: *packageName,
-		SingularizeTblName: *singularizeTblName,
-		FieldCommentPrefix: cmtInfo[0],
+		PkgName:              *packageName,
+		SingularizeTblName:   *singularizeTblName,
+		FieldCommentPrefix:   cmtInfo[0],
 		FieldCommentPosition: cmtInfo[1],
+		GoPackage:            *goPkgStr,
 	}
 	s, err := schemabuf.GenerateSchema(db, ignoreTables, genOptions)
 

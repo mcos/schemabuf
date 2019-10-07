@@ -30,6 +30,7 @@ type GenerationOptions struct {
 	SingularizeTblName   bool
 	FieldCommentPrefix   string
 	FieldCommentPosition string
+	GoPackage            string // value for option go_package="?";
 }
 
 // GenerateSchema generates a protobuf schema from a database connection and a package name.
@@ -209,16 +210,24 @@ func (s *Schema) String() string {
 	buf.WriteString("\n")
 	buf.WriteString("// ------------------------------------ \n")
 	buf.WriteString("// Imports\n")
-	buf.WriteString("// ------------------------------------ \n\n")
+	buf.WriteString("// ------------------------------------ \n")
 
 	for _, i := range s.Imports {
 		buf.WriteString(fmt.Sprintf("import \"%s\";\n", i))
 	}
 
+	if s.genOpts.GoPackage != "" {
+		buf.WriteString("\n")
+		buf.WriteString("// ------------------------------------ \n")
+		buf.WriteString("// Options\n")
+		buf.WriteString("// ------------------------------------ \n")
+		buf.WriteString(fmt.Sprintf("option go_package=\"%s\";\n", s.genOpts.GoPackage))
+	}
+
 	buf.WriteString("\n")
 	buf.WriteString("// ------------------------------------ \n")
 	buf.WriteString("// Messages\n")
-	buf.WriteString("// ------------------------------------ \n\n")
+	buf.WriteString("// ------------------------------------ \n")
 
 	for _, m := range s.Messages {
 		buf.WriteString(fmt.Sprintf("%s\n", m.String(s.genOpts.FieldCommentPrefix, s.genOpts.FieldCommentPosition)))
