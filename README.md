@@ -29,10 +29,12 @@ Usage of schemabuf:
         the database schema (default "db_name")
   -user string
         the database user (default "root")
+  -gen_type string
+  		Currently supported golang,value for [default,golang]
 ```
 
 ```
-$ schemabuf -host my.database.com -port 3307 -user foo -schema bar -package my_package -ignore_tables=billing,passwords > foobar.proto
+$ schemabuf -host my.database.com -port 3307 -user foo -schema bar -package my_package -ignore_tables=billing,passwords -gen_type golang > foobar.proto
 ```
 
 #### Use as an imported library

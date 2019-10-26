@@ -21,6 +21,7 @@ func main() {
 	schema := flag.String("schema", "db_name", "the database schema")
 	packageName := flag.String("package", *schema, "the protocol buffer package. defaults to the database schema.")
 	ignoreTableStr := flag.String("ignore_tables", "", "a comma spaced list of tables to ignore")
+	genType := flag.String("gen_type", "default", "Currently supported golang,value for [default,golang]")
 
 	flag.Parse()
 
@@ -34,7 +35,7 @@ func main() {
 
 	ignoreTables := strings.Split(*ignoreTableStr, ",")
 
-	s, err := schemabuf.GenerateSchema(db, *packageName, ignoreTables)
+	s, err := schemabuf.GenerateSchema(db, *packageName, ignoreTables,*genType)
 
 	if nil != err {
 		log.Fatal(err)
