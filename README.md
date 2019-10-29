@@ -5,6 +5,9 @@
 Generates a protobuf schema from your mysql database schema.
 
 ### Uses
+改动于https://godoc.org/github.com/mcos/schemabuf/schemabuf
+增加对golang的支持，修改bigint 对应的数据类型为int64的情况。
+
 #### Use from the command line:
 
 `go install github.com/mcos/schemabuf`
