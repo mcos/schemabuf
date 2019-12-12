@@ -5,6 +5,9 @@
 Generates a protobuf schema from your mysql database schema.
 
 ### Uses
+改动于https://godoc.org/github.com/mcos/schemabuf/schemabuf
+增加对golang的支持，修改bigint 对应的数据类型为int64的情况。
+
 #### Use from the command line:
 
 `go install github.com/mcos/schemabuf`
@@ -29,10 +32,12 @@ Usage of schemabuf:
         the database schema (default "db_name")
   -user string
         the database user (default "root")
+  -gen_type string
+  		Currently supported golang,value for [default,golang]
 ```
 
 ```
-$ schemabuf -host my.database.com -port 3307 -user foo -schema bar -package my_package -ignore_tables=billing,passwords > foobar.proto
+$ schemabuf -host my.database.com -port 3307 -user foo -schema bar -package my_package -ignore_tables=billing,passwords -gen_type golang > foobar.proto
 ```
 
 #### Use as an imported library

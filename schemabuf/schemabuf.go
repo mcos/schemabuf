@@ -20,6 +20,10 @@ const (
 	// indent represents the indentation amount for fields. the style guide suggests
 	// two spaces
 	indent = "  "
+
+
+	TypeGenDefault = "default"
+	TypeGenGOlang = "golang"
 )
 
 // GenerateSchema generates a protobuf schema from a database connection and a package name.
@@ -29,8 +33,10 @@ const (
 // Do not rely on the structure of the Generated schema to provide any context about
 // the protobuf types. The schema reflects the layout of a protobuf file and should be used
 // to pipe the output of the `Schema.String()` to a file.
-func GenerateSchema(db *sql.DB, pkg string, ignoreTables []string) (*Schema, error) {
-	s := &Schema{}
+func GenerateSchema(db *sql.DB, pkg string, ignoreTables []string,genType string) (*Schema, error) {
+	s := &Schema{
+		TypeGen:genType,
+	}
 
 	dbs, err := dbSchema(db)
 	if nil != err {
@@ -139,6 +145,8 @@ type Schema struct {
 	Imports  sort.StringSlice
 	Messages MessageCollection
 	Enums    EnumCollection
+
+	TypeGen string
 }
 
 // MessageCollection represents a sortable collection of messages.
@@ -405,13 +413,28 @@ func parseColumn(s *Schema, msg *Message, col Column) error {
 	case "blob", "mediumblob", "longblob", "varbinary", "binary":
 		fieldType = "bytes"
 	case "date", "time", "datetime", "timestamp":
-		s.AppendImport("google/protobuf/timestamp.proto")
+
+		switch s.TypeGen {
+		case TypeGenGOlang:
+			s.AppendImport("github.com/golang/protobuf/ptypes/timestamp/timestamp.proto")
+		case TypeGenDefault:
+			fallthrough
+		default:
+			s.AppendImport("google/protobuf/timestamp.proto")
+		}
+		//s.AppendImport("google/protobuf/timestamp.proto")
+		//
+		//fieldType = "google.protobuf.Timestamp"
+
+
 
 		fieldType = "google.protobuf.Timestamp"
 	case "tinyint", "bool":
 		fieldType = "bool"
-	case "smallint", "int", "mediumint", "bigint":
+	case "smallint", "int", "mediumint":
 		fieldType = "int32"
+	case "bigint":
+		fieldType = "int64"
 	case "float", "decimal", "double":
 		fieldType = "float"
 	}
